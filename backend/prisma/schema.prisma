@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://neondb_owner:npg_CepJMwh0In1v@ep-ancient-surf-aq0xlbjl-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+}
+
+model User {
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  role        Role     @default(BORROWER)
+  qrCode      String?  @unique
+  borrowings  Borrowing[]
+  createdAt   DateTime @default(now())
+}
+
+model Book {
+  id            String   @id @default(cuid())
+  title         String
+  author        String
+  isbn          String?  @unique
+  quantity      Int      @default(1)
+  available     Int      @default(1)
+  coverImage    String?
+  ebookUrl      String?  // For digital access
+  borrowings    Borrowing[]
+  createdAt     DateTime @default(now())
+}
+
+model Borrowing {
+  id          String   @id @default(cuid())
+  userId      String
+  bookId      String
+  borrowDate  DateTime @default(now())
+  dueDate     DateTime
+  returnDate  DateTime?
+  status      BorrowingStatus @default(BORROWED)
+  qrCode      String?  @unique // For quick scan return
+
+  user        User     @relation(fields: [userId], references: [id])
+  book        Book     @relation(fields: [bookId], references: [id])
+
+  @@unique([userId, bookId, status])
+}
+
+enum Role {
+  LIBRARIAN
+  BORROWER
+}
+
+enum BorrowingStatus {
+  BORROWED
+  RETURNED
+  OVERDUE
+}
