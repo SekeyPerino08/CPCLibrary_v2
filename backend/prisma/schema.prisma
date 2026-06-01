@@ -1,58 +1,78 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://neondb_owner:npg_CepJMwh0In1v@ep-ancient-surf-aq0xlbjl-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-}
-
-model User {
-  id          String   @id @default(cuid())
-  name        String
-  email       String   @unique
-  role        Role     @default(BORROWER)
-  qrCode      String?  @unique
-  borrowings  Borrowing[]
-  createdAt   DateTime @default(now())
-}
-
-model Book {
-  id            String   @id @default(cuid())
-  title         String
-  author        String
-  isbn          String?  @unique
-  quantity      Int      @default(1)
-  available     Int      @default(1)
-  coverImage    String?
-  ebookUrl      String?  // For digital access
-  borrowings    Borrowing[]
-  createdAt     DateTime @default(now())
-}
-
-model Borrowing {
-  id          String   @id @default(cuid())
-  userId      String
-  bookId      String
-  borrowDate  DateTime @default(now())
-  dueDate     DateTime
-  returnDate  DateTime?
-  status      BorrowingStatus @default(BORROWED)
-  qrCode      String?  @unique // For quick scan return
-
-  user        User     @relation(fields: [userId], references: [id])
-  book        Book     @relation(fields: [bookId], references: [id])
-
-  @@unique([userId, bookId, status])
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
+  STUDENT
+  FACULTY
   LIBRARIAN
-  BORROWER
 }
 
-enum BorrowingStatus {
+enum BorrowStatus {
   BORROWED
   RETURNED
   OVERDUE
+}
+
+model User {
+  id                Int         @id @default(autoincrement())
+  idNumber          String      @unique // Student ID or Faculty ID
+  role              Role
+  firstName         String
+  lastName          String
+  courseDepartment  String?    // Course for Students, Dept for Faculty
+  yearSection      String?     // Year/Section for Students
+  username         String      @unique
+  password          String      // Hashed password
+  createdAt         DateTime    @default(now())
+  
+  borrowings        Borrowing[]
+}
+
+model Book {
+  id                 Int         @id @default(autoincrement())
+  accessionNumber   String      @unique
+  isbn               String?
+  title              String
+  author             String
+  category           String
+  publisher          String?
+  publicationYear    Int?
+  quantity           Int
+  availableCopies    Int
+  qrCode             String?    // Can store the QR string data or file path
+  createdAt          DateTime    @default(now())
+
+  borrowings         Borrowing[]
+}
+
+model Borrowing {
+  id          Int          @id @default(autoincrement())
+  userId      Int
+  bookId     Int
+  borrowDate DateTime     @default(now())
+  dueDate     DateTime
+  status     BorrowStatus @default(BORROWED)
+  createdAt  DateTime     @default(now())
+
+  user        User        @relation(fields: [userId], references: [id])
+  book       Book        @relation(fields: [bookId], references: [id])
+  return     Return?
+}
+
+model Return {
+  id            Int       @id @default(autoincrement())
+  borrowingId   Int       @unique
+  returnDate    DateTime  @default(now())
+  overdueDays   Int       @default(0)
+  createdAt     DateTime  @default(now())
+
+  borrowing     Borrowing @relation(fields: [borrowingId], references: [id])
 }
