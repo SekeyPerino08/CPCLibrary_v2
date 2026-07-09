@@ -19,10 +19,12 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  borrows     Borrow[]
-  reservations Reservation[]
+  borrows       Borrow[]
+  reservations  Reservation[]
   activityLogs ActivityLog[]
+  notifications Notification[]
 }
+
 
 model Book {
   id              String   @id @default(cuid())
@@ -72,7 +74,10 @@ model Borrow {
   returnDate      DateTime?
   qrCode          String?     // Single-use token
   createdAt       DateTime    @default(now())
+
+  qrTokens QrToken[]
 }
+
 
 model Reservation {
   id        String   @id @default(cuid())
@@ -80,9 +85,70 @@ model Reservation {
   user      User     @relation(fields: [userId], references: [id])
   bookId    String
   book      Book     @relation(fields: [bookId], references: [id])
-  status    String   @default("WAITING")
+
+  // WAITING in the queue; ACTIVE when a copy becomes available; CLAIMED/EXPIRED when resolved
+  status    ReservationStatus @default(WAITING)
+  position  Int? // optional: ordering index within a book queue
+
+  // When a copy becomes available, system sets expiresAt based on policy.
   expiresAt DateTime?
+  claimedAt DateTime?
   createdAt DateTime @default(now())
+
+  activityLogs ActivityLog[]
+}
+
+model QrToken {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  purpose     QrPurpose
+  usedAt      DateTime?
+  expiresAt   DateTime
+
+  // Links depending on QR purpose.
+  borrowId    String?
+  returnId    String?
+
+  createdAt DateTime @default(now())
+
+  borrow      Borrow? @relation(fields: [borrowId], references: [id])
+}
+
+
+model BookQrCode {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  purpose   QrPurpose
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  type      NotificationType
+  title     String
+  message   String?
+  isRead    Boolean  @default(false)
+
+  // Optional deep-linking
+  entityType NotificationEntityType?
+  entityId   String?
+
+  createdAt DateTime @default(now())
+}
+
+model Policy {
+  id                    String   @id @default(cuid())
+  key                   PolicyKey @unique
+  valueJson             Json
+  updatedAt             DateTime @updatedAt
+  createdAt             DateTime @default(now())
+
+  activityLogs ActivityLog[]
 }
 
 model ActivityLog {
@@ -91,7 +157,14 @@ model ActivityLog {
   action    String
   details   Json?
   createdAt DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id])
+  reservation  Reservation? @relation(fields: [reservationId], references: [id])
+  reservationId String?
+  policy       Policy?      @relation(fields: [policyId], references: [id])
+  policyId     String?
 }
+
 
 enum Role {
   STUDENT
@@ -113,3 +186,47 @@ enum BorrowStatus {
   RETURNED
   REJECTED
 }
+
+enum ReservationStatus {
+  WAITING
+  ACTIVE
+  CLAIMED
+  EXPIRED
+}
+
+enum QrPurpose {
+  BORROW_APPROVAL
+  RETURN_CONFIRMATION
+  RESERVATION_CLAIM
+}
+
+enum NotificationType {
+  BORROW_REQUEST_APPROVED
+  BORROW_REQUEST_REJECTED
+  DUE_DATE_REMINDER
+  OVERDUE
+  RESERVATION_AVAILABLE
+  BORROW_CONFIRMATION
+  RETURN_CONFIRMATION
+  RESERVATION_EXPIRATION
+  LOW_INVENTORY
+  NEW_BORROW_REQUEST
+}
+
+enum NotificationEntityType {
+  BORROW
+  RESERVATION
+  BOOK
+  EBOOK
+}
+
+enum PolicyKey {
+  STUDENT_BORROW_DURATION_DAYS
+  FACULTY_BORROW_DURATION_DAYS
+  FACULTY_BORROW_OPTIONS_JSON
+  MAX_BOOKS_PER_TRANSACTION
+  MAX_ACTIVE_BORROWINGS
+  RESERVATION_CLAIM_PERIOD_HOURS
+  QR_CODE_EXPIRATION_MINUTES
+}
+
