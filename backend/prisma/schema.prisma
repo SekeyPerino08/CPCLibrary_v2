@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  name        String
+  role        Role     @default(STUDENT)
+  department  String?
+  yearSection String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  borrows     Borrow[]
+  reservations Reservation[]
+  activityLogs ActivityLog[]
+}
+
+model Book {
+  id              String   @id @default(cuid())
+  isbn            String   @unique
+  accessionNumber String   @unique
+  title           String
+  author          String
+  publisher       String
+  publicationYear Int
+  category        String
+  shelfLocation   String
+  description     String?
+  coverImage      String?
+  totalCopies     Int      @default(1)
+  availableCopies Int      @default(1)
+  status          BookStatus @default(AVAILABLE)
+
+  borrows         Borrow[]
+  reservations    Reservation[]
+  createdAt       DateTime @default(now())
+}
+
+model EBook {
+  id              String   @id @default(cuid())
+  title           String
+  author          String
+  category        String
+  description     String?
+  pdfUrl          String
+  coverImage      String?
+  allowDownload   Boolean  @default(false)
+  viewCount       Int      @default(0)
+  downloadCount   Int      @default(0)
+  createdAt       DateTime @default(now())
+}
+
+model Borrow {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  bookId          String
+  book            Book        @relation(fields: [bookId], references: [id])
+  status          BorrowStatus @default(PENDING)
+  requestedPeriod String?
+  issueDate       DateTime?
+  dueDate         DateTime?
+  returnDate      DateTime?
+  qrCode          String?     // Single-use token
+  createdAt       DateTime    @default(now())
+}
+
+model Reservation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id])
+  status    String   @default("WAITING")
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  STUDENT
+  FACULTY
+  LIBRARIAN
+}
+
+enum BookStatus {
+  AVAILABLE
+  BORROWED
+  RESERVED
+  LOST
+}
+
+enum BorrowStatus {
+  PENDING
+  APPROVED
+  BORROWED
+  RETURNED
+  REJECTED
+}
